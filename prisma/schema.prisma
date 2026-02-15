@@ -1,0 +1,271 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODELS - MULTI-TENANT ARCHITECTURE
+// ============================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  settings  Json?    @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  budgets       Budget[]
+  goals         FinancialGoal[]
+  auditLogs     AuditLog[]
+  importJobs    ImportJob[]
+
+  @@index([createdAt])
+  @@map("organizations")
+}
+
+model Account {
+  id              String      @id @default(cuid())
+  organizationId  String
+  name            String
+  type            AccountType
+  institution     String?
+  currency        String      @default("BRL")
+  creditLimit     BigInt?
+  dueDay          Int?        // Dia vencimento cartão
+  closingDay      Int?        // Dia fechamento fatura
+  color           String?
+  icon            String?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("accounts")
+}
+
+model Category {
+  id              String       @id @default(cuid())
+  organizationId  String
+  name            String
+  type            CategoryType
+  icon            String?
+  color           String?
+  budgetPercent   Float?       // Para estratégia 50/30/20
+  parentId        String?
+  isSystem        Boolean      @default(false) // Categorias padrão do sistema
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent          Category?     @relation("SubCategories", fields: [parentId], references: [id])
+  children        Category[]    @relation("SubCategories")
+  transactions    Transaction[]
+  budgets         Budget[]
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  organizationId  String
+  accountId       String
+  categoryId      String?
+  amountCents     BigInt            // SEMPRE em centavos!
+  currency        String            @default("BRL")
+  type            TransactionType
+  description     String
+  date            DateTime
+  status          TransactionStatus @default(PENDING)
+  externalId      String?           // ID externo (OFX, CSV)
+  source          String?           // MANUAL, IMPORT, WHATSAPP
+
+  // Transações recorrentes
+  recurring       Boolean           @default(false)
+  recurringRule   Json?             // { frequency: 'monthly', day: 15 }
+
+  // IA
+  aiCategorized   Boolean           @default(false)
+  aiConfidence    Float?
+  aiMethod        String?           // rules, history, ai
+
+  // Tags
+  tags            String[]
+
+  // Metadata
+  rawData         Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account         Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([accountId, date(sort: Desc)])
+  @@index([categoryId])
+  @@index([status])
+  @@index([date(sort: Desc)])
+  @@index([externalId])
+  @@map("transactions")
+}
+
+model Budget {
+  id              String       @id @default(cuid())
+  organizationId  String
+  categoryId      String?
+  name            String
+  amountCents     BigInt
+  period          BudgetPeriod @default(MONTHLY)
+  strategy        String?      // "50/30/20", "custom"
+  alertThreshold  Float?       @default(0.8) // 80% = alerta
+  startDate       DateTime?
+  endDate         DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([categoryId])
+  @@map("budgets")
+}
+
+model FinancialGoal {
+  id              String    @id @default(cuid())
+  organizationId  String
+  name            String
+  targetAmount    BigInt
+  currentAmount   BigInt    @default(0)
+  deadline        DateTime?
+  priority        Int       @default(1)
+  color           String?
+  icon            String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([deadline])
+  @@map("financial_goals")
+}
+
+model ImportJob {
+  id              String       @id @default(cuid())
+  organizationId  String
+  accountId       String?
+  fileType        String       // 'ofx', 'csv'
+  fileUrl         String
+  fileName        String
+  fileSize        Int
+
+  status          ImportStatus @default(PENDING)
+  progress        Float        @default(0) // 0-100
+  imported        Int          @default(0)
+  skipped         Int          @default(0)
+  errors          Int          @default(0)
+  errorDetails    Json?
+
+  createdAt       DateTime     @default(now())
+  completedAt     DateTime?
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([createdAt(sort: Desc)])
+  @@map("import_jobs")
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  organizationId  String
+  userId          String?
+  action          String   // 'CREATE_TRANSACTION', 'UPDATE_BUDGET'
+  entityType      String   // 'transaction', 'account'
+  entityId        String
+  oldValues       Json?
+  newValues       Json?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // WORM: Write-Once-Read-Many - Não permitir UPDATE/DELETE
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum AccountType {
+  CHECKING     // Conta corrente
+  SAVINGS      // Poupança
+  CREDIT_CARD  // Cartão de crédito
+  INVESTMENT   // Investimento
+  CASH         // Dinheiro
+}
+
+enum CategoryType {
+  ESSENTIAL  // 50% - Essenciais (moradia, alimentação, transporte)
+  LIFESTYLE  // 30% - Estilo de vida (lazer, entretenimento)
+  SAVINGS    // 20% - Poupança/Investimentos
+  INCOME     // Receitas
+}
+
+enum TransactionType {
+  INCOME   // Receita
+  EXPENSE  // Despesa
+  TRANSFER // Transferência
+}
+
+enum TransactionStatus {
+  PENDING    // Pendente
+  CONFIRMED  // Confirmada
+  RECONCILED // Reconciliada
+  CANCELLED  // Cancelada
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
