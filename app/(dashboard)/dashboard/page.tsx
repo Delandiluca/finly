@@ -20,6 +20,44 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
+// Helper para calcular saldo de uma conta
+async function calculateAccountBalance(accountId: string): Promise<number> {
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      OR: [
+        { accountId },
+        { toAccountId: accountId },
+      ],
+    },
+    select: {
+      type: true,
+      amountCents: true,
+      accountId: true,
+      toAccountId: true,
+    },
+  });
+
+  let balance = 0;
+  
+  for (const t of transactions) {
+    if (t.accountId === accountId) {
+      // Esta conta foi origem
+      if (t.type === 'INCOME') {
+        balance += Number(t.amountCents);
+      } else if (t.type === 'EXPENSE' || t.type === 'TRANSFER') {
+        balance -= Number(t.amountCents);
+      }
+    }
+    
+    if (t.toAccountId === accountId) {
+      // Esta conta foi destino de transferência
+      balance += Number(t.amountCents);
+    }
+  }
+  
+  return balance;
+}
+
 export default async function DashboardPage() {
   const { userId, orgId } = await auth();
 
@@ -29,7 +67,7 @@ export default async function DashboardPage() {
 
   // Buscar dados em paralelo
   const [accounts, recentTransactions, monthStats] = await Promise.all([
-    // Buscar contas ativas
+    // Buscar contas ativas (sem balance)
     prisma.account.findMany({
       where: {
         organizationId: orgId,
@@ -38,7 +76,6 @@ export default async function DashboardPage() {
       select: {
         id: true,
         name: true,
-        balance: true,
       },
     }),
 
@@ -85,8 +122,16 @@ export default async function DashboardPage() {
     })(),
   ]);
 
+  // Calcular saldo de cada conta
+  const accountsWithBalance = await Promise.all(
+    accounts.map(async (account) => ({
+      ...account,
+      balance: await calculateAccountBalance(account.id),
+    }))
+  );
+
   // Calcular saldo total
-  const totalBalance = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
+  const totalBalance = accountsWithBalance.reduce((sum, acc) => sum + acc.balance, 0);
 
   // Verificar se tem dados
   const hasAccounts = accounts.length > 0;
@@ -280,7 +325,7 @@ export default async function DashboardPage() {
               </Link>
             </div>
             <div className="space-y-3">
-              {accounts.slice(0, 4).map((account) => (
+              {accountsWithBalance.slice(0, 4).map((account) => (
                 <div
                   key={account.id}
                   className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
