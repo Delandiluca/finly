@@ -69,17 +69,17 @@ export default async function DashboardPage() {
         },
         select: {
           type: true,
-          amount: true,
+          amountCents: true,
         },
       });
 
       const income = transactions
         .filter((t) => t.type === 'INCOME')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+        .reduce((sum, t) => sum + Number(t.amountCents), 0);
 
       const expense = transactions
         .filter((t) => t.type === 'EXPENSE')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+        .reduce((sum, t) => sum + Number(t.amountCents), 0);
 
       return { income, expense };
     })(),
@@ -336,7 +336,7 @@ export default async function DashboardPage() {
                       }`}
                     >
                       {transaction.type === 'INCOME' ? '+' : '-'}
-                      {formatCurrency(transaction.amount)}
+                      {formatCurrency(transaction.amountCents)}
                     </span>
                   </div>
                 ))}
