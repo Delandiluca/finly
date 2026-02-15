@@ -29,11 +29,32 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/select-organization',
   '/api/webhooks(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId, orgId } = await auth();
+
+  // NOVO: Redirecionar usuários autenticados da landing page
+  if (req.nextUrl.pathname === '/' && userId) {
+    // Se tem organização, vai pro dashboard
+    if (orgId) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    // Se não tem organização, vai selecionar/criar uma
+    return NextResponse.redirect(new URL('/select-organization', req.url));
+  }
+
+  // NOVO: Redirecionar usuários autenticados das páginas de auth
+  if ((req.nextUrl.pathname.startsWith('/sign-in') || req.nextUrl.pathname.startsWith('/sign-up')) && userId) {
+    // Se tem organização, vai pro dashboard
+    if (orgId) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+    // Se não tem organização, vai selecionar/criar uma
+    return NextResponse.redirect(new URL('/select-organization', req.url));
+  }
 
   // Se for rota pública, permitir acesso
   if (isPublicRoute(req)) {
