@@ -37,45 +37,66 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verificar se já existem categorias
-    const existingCount = await prisma.category.count({
-      where: { organizationId: orgId },
-    });
+    // Usar transaction para garantir que organização existe
+    const result = await prisma.$transaction(async (tx) => {
+      // PRIMEIRO: Garantir que a organização existe no banco
+      await tx.organization.upsert({
+        where: { id: orgId },
+        create: {
+          id: orgId,
+          name: 'My Organization',
+        },
+        update: {},
+      });
 
-    if (existingCount > 0) {
-      return NextResponse.json(
-        { error: 'Bad Request', message: 'Organização já possui categorias' },
-        { status: 400 }
-      );
-    }
+      // Verificar se já existem categorias
+      const existingCount = await tx.category.count({
+        where: { organizationId: orgId },
+      });
 
-    // Criar categorias de despesa (usando ESSENTIAL como padrão)
-    const expenseCategories = await prisma.category.createMany({
-      data: DEFAULT_EXPENSE_CATEGORIES.map((cat) => ({
-        ...cat,
-        type: 'ESSENTIAL',
-        organizationId: orgId,
-      })),
-    });
+      if (existingCount > 0) {
+        throw new Error('Organização já possui categorias');
+      }
 
-    // Criar categorias de receita
-    const incomeCategories = await prisma.category.createMany({
-      data: DEFAULT_INCOME_CATEGORIES.map((cat) => ({
-        ...cat,
-        type: 'INCOME',
-        organizationId: orgId,
-      })),
+      // Criar categorias de despesa (usando ESSENTIAL como padrão)
+      const expenseCategories = await tx.category.createMany({
+        data: DEFAULT_EXPENSE_CATEGORIES.map((cat) => ({
+          ...cat,
+          type: 'ESSENTIAL',
+          organizationId: orgId,
+        })),
+      });
+
+      // Criar categorias de receita
+      const incomeCategories = await tx.category.createMany({
+        data: DEFAULT_INCOME_CATEGORIES.map((cat) => ({
+          ...cat,
+          type: 'INCOME',
+          organizationId: orgId,
+        })),
+      });
+
+      return {
+        expenses: expenseCategories.count,
+        incomes: incomeCategories.count,
+      };
     });
 
     return NextResponse.json({
       message: 'Categorias padrão criadas com sucesso',
-      created: {
-        expenses: expenseCategories.count,
-        incomes: incomeCategories.count,
-      },
+      created: result,
     });
   } catch (error) {
     console.error('Error seeding categories:', error);
+
+    // Tratar erro específico de categorias existentes
+    if (error instanceof Error && error.message === 'Organização já possui categorias') {
+      return NextResponse.json(
+        { error: 'Bad Request', message: error.message },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

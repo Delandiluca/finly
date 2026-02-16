@@ -84,6 +84,16 @@ export async function POST(req: NextRequest) {
 
     // Criar conta e transação inicial se houver saldo
     const result = await prisma.$transaction(async (tx) => {
+      // PRIMEIRO: Garantir que a organização existe no banco
+      await tx.organization.upsert({
+        where: { id: orgId },
+        create: {
+          id: orgId,
+          name: 'My Organization', // Nome padrão, será atualizado pelo webhook
+        },
+        update: {}, // Se já existe, não faz nada
+      });
+
       // Criar conta
       const account = await tx.account.create({
         data: {
