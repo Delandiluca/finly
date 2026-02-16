@@ -49,13 +49,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Criar categorias de despesa
+    // Criar categorias de despesa (usando ESSENTIAL como padrão)
     const expenseCategories = await prisma.category.createMany({
       data: DEFAULT_EXPENSE_CATEGORIES.map((cat) => ({
         ...cat,
-        type: 'EXPENSE' as const,
+        type: 'ESSENTIAL',
         organizationId: orgId,
-        createdBy: userId,
       })),
     });
 
@@ -63,9 +62,8 @@ export async function POST(req: NextRequest) {
     const incomeCategories = await prisma.category.createMany({
       data: DEFAULT_INCOME_CATEGORIES.map((cat) => ({
         ...cat,
-        type: 'INCOME' as const,
+        type: 'INCOME',
         organizationId: orgId,
-        createdBy: userId,
       })),
     });
 

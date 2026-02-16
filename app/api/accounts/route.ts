@@ -89,7 +89,6 @@ export async function POST(req: NextRequest) {
         data: {
           ...accountData,
           organizationId: orgId,
-          createdBy: userId,
         },
       });
 
@@ -104,8 +103,7 @@ export async function POST(req: NextRequest) {
             currency: account.currency,
             description: 'Saldo inicial',
             date: new Date(),
-            status: 'COMPLETED',
-            createdBy: userId,
+            status: 'CONFIRMED',
           },
         });
       }

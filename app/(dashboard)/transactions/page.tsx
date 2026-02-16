@@ -47,11 +47,6 @@ export default async function TransactionsPage() {
             type: true,
           },
         },
-        toAccount: {
-          select: {
-            name: true,
-          },
-        },
       },
       orderBy: {
         date: 'desc',
@@ -197,11 +192,6 @@ export default async function TransactionsPage() {
                     <p className="text-sm font-medium truncate">
                       {transaction.description || 'Sem descrição'}
                     </p>
-                    {transaction.type === 'TRANSFER' && transaction.toAccount && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        → {transaction.toAccount.name}
-                      </p>
-                    )}
                   </div>
                 </div>
 
