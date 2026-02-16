@@ -71,28 +71,9 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     // 2. Verificar se tem organização selecionada
-    if (!orgId && req.nextUrl.pathname.startsWith('/dashboard')) {
-      // TODO: Redirecionar para seleção/criação de organização
+    if (!orgId) {
+      // Se não tem organização, redirecionar para seleção
       return NextResponse.redirect(new URL('/select-organization', req.url));
-    }
-
-    // 3. Validar orgId na URL vs orgId do usuário (para rotas com [orgId])
-    const pathSegments = req.nextUrl.pathname.split('/');
-    const pathOrgId = pathSegments[2]; // /dashboard/[orgId]/...
-
-    if (
-      pathOrgId &&
-      pathOrgId !== 'create' &&
-      pathOrgId !== orgId
-    ) {
-      // Security: Tentativa de acessar org diferente
-      return NextResponse.json(
-        {
-          error: 'Forbidden',
-          message: 'You do not have access to this organization',
-        },
-        { status: 403 }
-      );
     }
   }
 
