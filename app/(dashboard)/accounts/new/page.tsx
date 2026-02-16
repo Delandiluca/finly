@@ -39,8 +39,12 @@ export default function NewAccountPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          balance: balanceInCents,
+          name: formData.name,
+          type: formData.type,
+          initialBalance: balanceInCents,
+          currency: formData.currency,
+          institution: formData.institution || undefined,
+          color: formData.color || undefined,
         }),
       });
 

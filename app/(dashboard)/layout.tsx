@@ -27,22 +27,22 @@ export default function DashboardLayout({
               Dashboard
             </Link>
             <Link
-              href="/accounts"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Contas
-            </Link>
-            <Link
               href="/transactions"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               Transações
             </Link>
             <Link
-              href="/budgets"
+              href="/accounts"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Orçamentos
+              Contas
+            </Link>
+            <Link
+              href="/categories"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Categorias
             </Link>
           </nav>
 

@@ -7,7 +7,7 @@ import { z } from 'zod';
 const accountSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100),
   type: z.enum(['CHECKING', 'SAVINGS', 'INVESTMENT', 'CREDIT_CARD', 'CASH']),
-  balance: z.number().optional().default(0),
+  initialBalance: z.number().optional().default(0), // Saldo inicial para criar transação
   currency: z.string().default('BRL'),
   institution: z.string().optional(),
   color: z.string().optional(),
@@ -42,7 +42,6 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         type: true,
-        balance: true,
         currency: true,
         institution: true,
         color: true,
@@ -81,17 +80,40 @@ export async function POST(req: NextRequest) {
 
     // Validar dados
     const validatedData = accountSchema.parse(body);
+    const { initialBalance, ...accountData } = validatedData;
 
-    // Criar conta
-    const account = await prisma.account.create({
-      data: {
-        ...validatedData,
-        organizationId: orgId,
-        createdBy: userId,
-      },
+    // Criar conta e transação inicial se houver saldo
+    const result = await prisma.$transaction(async (tx) => {
+      // Criar conta
+      const account = await tx.account.create({
+        data: {
+          ...accountData,
+          organizationId: orgId,
+          createdBy: userId,
+        },
+      });
+
+      // Se houver saldo inicial, criar transação de INCOME
+      if (initialBalance && initialBalance !== 0) {
+        await tx.transaction.create({
+          data: {
+            organizationId: orgId,
+            accountId: account.id,
+            type: 'INCOME',
+            amountCents: BigInt(initialBalance),
+            currency: account.currency,
+            description: 'Saldo inicial',
+            date: new Date(),
+            status: 'COMPLETED',
+            createdBy: userId,
+          },
+        });
+      }
+
+      return account;
     });
 
-    return NextResponse.json({ account }, { status: 201 });
+    return NextResponse.json({ account: result }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
