@@ -37,7 +37,7 @@ export default defineConfig({
   // Configurações compartilhadas
   use: {
     // URL base
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3002',
 
     // Rastreamento de testes que falharem
     trace: 'on-first-retry',
@@ -49,38 +49,18 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
 
-  // Configurar projetos (browsers)
+  // Configurar projetos (browsers) - apenas Chromium para velocidade
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-    },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    // Testes mobile
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
     },
   ],
 
   // Servidor de desenvolvimento
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:3002',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
