@@ -1,0 +1,35 @@
+# Local git hooks (lefthook). FAST local feedback, intentionally bypassable with
+# `git commit --no-verify` / `git push --no-verify` — the real, non-bypassable enforcement is CI
+# (.github/workflows/ci.yml). Installed by the root `prepare` script (`lefthook install`), which
+# runs on `npm install`.
+#
+# By design the hooks enforce EXACTLY what CI enforces — conventional-commit format and the
+# typecheck ratchet — plus one local-only guard (no direct commits on main). Lint and `next build`
+# are NOT gates: the tree carries known type errors, so the build cannot pass yet, and lint would
+# be noise on top of that. Both are informational in CI and run on demand locally.
+
+# Cheap guard: never commit straight onto main (it is the Vercel deploy source). Bypassable when
+# you really mean it, but the default answer is "use a feature branch".
+pre-commit:
+  commands:
+    no-commit-on-main:
+      run: |
+        branch=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$branch" = "main" ]; then
+          echo "Refusing to commit directly on main — it deploys to Vercel. Use a feature branch, or bypass with 'git commit --no-verify' if you really mean it." >&2
+          exit 1
+        fi
+
+# Conventional-commit format on every commit ({1} is git's commit-message file). PRs are the merge
+# unit, so the PR title is what lands on main; this keeps the branch history tidy too.
+commit-msg:
+  commands:
+    commitlint:
+      run: npx commitlint --edit {1}
+
+# The gate before code leaves the machine: the same must-pass check CI runs. The ratchet refuses
+# any NEW type error while tolerating the known ones — see scripts/typecheck-ratchet.mjs.
+pre-push:
+  commands:
+    validate:
+      run: npm run validate

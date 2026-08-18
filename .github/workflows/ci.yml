@@ -1,0 +1,70 @@
+name: CI
+
+# Runs on every PR into main. Gates only what CAN pass today: conventional-commit format and the
+# typecheck ratchet (no NEW type errors — scripts/typecheck-ratchet.mjs). Lint and the production
+# build run too but are INFORMATIONAL, because the tree carries 44 known type errors and
+# `next build` typechecks, so it cannot go green until that baseline reaches zero. Promote both to
+# hard gates the moment it does — see AGENTS.md → "Tech-debt ledger".
+on:
+  pull_request:
+    # `edited` so re-titling a PR re-runs the conventional-commit title check (a title edit does
+    # not change the head SHA, so without it a required check keeps its stale pass).
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate (commits, typecheck ratchet)
+    runs-on: ubuntu-latest
+    env:
+      # Placeholder values so `next build` can read the env it needs without real credentials.
+      # The build contacts none of these services; they only satisfy the env reads at module load.
+      # Real values live in Vercel, never here.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+      CLERK_SECRET_KEY: sk_test_placeholder
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/finly_ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so commitlint can walk the PR's commit range (base..head).
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The generated Prisma client is what types every query — nothing typechecks without it.
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      # Passed via env, never interpolated into the shell, to avoid script injection from the title.
+      - name: Lint PR title (becomes the merge commit on main)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$PR_TITLE" | npx commitlint
+
+      - name: Lint every commit in the PR
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Typecheck ratchet (no new type errors)
+        run: npm run typecheck:ratchet
+
+      # Informational only — never fails the PR. See the header comment.
+      - name: Build (informational)
+        if: always()
+        run: npm run build || echo "::warning::next build fails on the known type-error baseline — informational until the ratchet reaches zero."
+
+      # Informational only — never fails the PR. See the header comment.
+      - name: Lint (informational)
+        if: always()
+        run: npm run lint || echo "::warning::eslint reported issues — informational, not a merge gate. Run 'npm run lint' locally."

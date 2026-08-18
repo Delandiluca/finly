@@ -1,0 +1,12 @@
+{
+  "app/(dashboard)/accounts/page.tsx": 2,
+  "app/(dashboard)/categories/page.tsx": 1,
+  "app/(dashboard)/dashboard/page.tsx": 3,
+  "app/api/categories/[id]/route.ts": 2,
+  "app/api/categories/route.ts": 4,
+  "app/api/transactions/[id]/route.ts": 21,
+  "app/api/transactions/route.ts": 6,
+  "lib/audit.ts": 2,
+  "lib/auth.ts": 1,
+  "lib/db.ts": 2
+}
