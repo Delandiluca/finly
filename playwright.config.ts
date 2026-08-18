@@ -1,66 +1,35 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * Configuração do Playwright para testes E2E do Finly
- *
- * Documentação: https://playwright.dev/docs/test-configuration
- */
+// E2E is NOT a CI gate: the suite needs live Clerk credentials and a seeded database, which CI
+// has no way to provide. It is a local gate — run it before shipping anything that touches a
+// screen or an API route. See AGENTS.md → "Validation".
+//
+// Ports follow the repo scheme (5 + service): 5010 app, 5080 report, 5090 UI.
+const APP_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5010';
+
 export default defineConfig({
   testDir: './tests/e2e',
-
-  // Timeout para cada teste (30 segundos)
   timeout: 30 * 1000,
-
-  // Configuração de expect
-  expect: {
-    timeout: 5000,
-  },
-
-  // Executar testes em paralelo
+  expect: { timeout: 5000 },
   fullyParallel: true,
-
-  // Falhar build se houver testes marcados com .only
   forbidOnly: !!process.env.CI,
-
-  // Retry em CI
   retries: process.env.CI ? 2 : 0,
-
-  // Quantos workers rodar em paralelo
   workers: process.env.CI ? 1 : undefined,
 
-  // Reporter
-  reporter: [
-    ['html'],
-    ['list'],
-  ],
+  reporter: [['html', { port: 5080 }], ['list']],
 
-  // Configurações compartilhadas
   use: {
-    // URL base
-    baseURL: 'http://localhost:3002',
-
-    // Rastreamento de testes que falharem
+    baseURL: APP_URL,
     trace: 'on-first-retry',
-
-    // Screenshot apenas ao falhar
     screenshot: 'only-on-failure',
-
-    // Vídeo apenas ao falhar
     video: 'retain-on-failure',
   },
 
-  // Configurar projetos (browsers) - apenas Chromium para velocidade
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
-  // Servidor de desenvolvimento
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3002',
+    url: APP_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
