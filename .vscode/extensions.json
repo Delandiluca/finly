@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "Prisma.prisma",
+    "ms-playwright.playwright",
+    "eamodio.gitlens",
+    "christian-kohler.path-intellisense",
+    "formulahendry.auto-rename-tag",
+    "yzhang.markdown-all-in-one",
+    "usernamehw.errorlens",
+    "vivaxy.vscode-conventional-commits",
+    "EditorConfig.EditorConfig",
+    "Anthropic.claude-code"
+  ]
+}

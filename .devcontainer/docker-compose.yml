@@ -1,0 +1,64 @@
+# Local dev stack for finly. `dev` is the workhorse — VS Code attaches here and runs
+# `npm run dev`. Postgres is the one backing service that has to be local: Prisma talks
+# to it directly. Clerk, Upstash and Vercel Blob stay hosted (they have no local
+# equivalent worth emulating), so they are configured through .env.local instead.
+#
+# PORT STANDARD (deterministic): 5 + service + tree.
+#   service 0=web 3=postgres 8=test-report 9=test-ui | tree 0=reference checkout
+# Every service LISTENS on its scheme port and is published 1:1 (no host/container
+# rebind), the same rule the sister repos follow. The 5xxx prefix keeps finly clear of
+# fourmdg (4xxx) and product-metrics (3000) so all three can run at once.
+#   5010 Next.js    5030 Postgres    5080 Playwright report    5090 Playwright UI
+
+services:
+  # Workspace container.
+  #
+  # The repo is deliberately NOT mounted here: Dev Containers mounts it at
+  # /workspaces/finly automatically — a host bind on "Reopen in Container", a Docker
+  # named volume on "Clone Repository in Named Volume". Declaring the mount ourselves
+  # would shadow VS Code's with an empty directory and the code vanishes.
+  dev:
+    image: mcr.microsoft.com/devcontainers/typescript-node:20
+    command: sleep infinity
+    # PID 1 is `sleep infinity`, which never wait()s on orphaned children, so normal dev
+    # churn (shells that exit before their child does) accumulates zombies. `init: true`
+    # makes Compose inject tini as PID 1, which reaps them for free.
+    init: true
+    volumes:
+      # Persist node_modules across rebuilds so a rebuild reuses the installed tree
+      # instead of refetching ~700 packages. Wipe with `docker compose down -v`.
+      - node_modules:/workspaces/finly/node_modules
+    # No `ports:` here on purpose — devcontainer.json's `forwardPorts` publishes the app
+    # ports, and VS Code is the only thing that ever starts this container. Publishing
+    # the same port both ways makes Docker claim it at boot and VS Code collide with it
+    # on attach, which silently remaps to a neighbouring port.
+    environment:
+      # Points Prisma at the compose Postgres below. Overridable in .env.local for anyone
+      # who would rather target a hosted branch database.
+      DATABASE_URL: postgresql://postgres:finly_dev@postgres:5030/finly_development
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    command: ["-p", "5030"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: finly_dev
+      POSTGRES_DB: finly_development
+    # Published natively (not via forwardPorts) so `psql` works straight from the host
+    # even with VS Code detached. Bound to loopback — never exposed off the machine.
+    ports:
+      - "127.0.0.1:5030:5030"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 5030"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres:
+  node_modules:
