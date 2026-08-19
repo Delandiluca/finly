@@ -1,0 +1,89 @@
+{
+  "name": "finly",
+  // Compose-based, unlike the sister product-metrics repo (single image): finly owns its
+  // database. Prisma needs a real Postgres to generate against, migrate and run E2E, so the
+  // stack is app + Postgres. Everything else it depends on (Clerk, Upstash, Vercel Blob) is
+  // hosted and reached over the network via .env.local.
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspaces/finly",
+  "shutdownAction": "stopCompose",
+  "remoteUser": "root",
+
+  "features": {
+    // gh CLI for auth + PR work, the same tool the local workflow reaches for.
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  // Named volumes for dev-tooling state — declared HERE, not in docker-compose.yml, on
+  // purpose: this is developer state, not app infra, so it survives a
+  // `docker compose down -v` of the database.
+  //   - finly-claude-data : Claude Code history / credentials / memory across rebuilds.
+  //   - finly-gh-config   : gh CLI auth, so `gh auth login` is interactive only once.
+  "mounts": [
+    "source=finly-claude-data,target=/root/.claude,type=volume",
+    "source=finly-gh-config,target=/root/.config/gh,type=volume"
+  ],
+
+  "remoteEnv": {
+    "NODE_ENV": "development"
+    // App secrets (Clerk, OpenAI, Upstash, Blob, ENCRYPTION_KEY) live in .env.local, which is
+    // gitignored — see .env.example. They are NOT set here so this file carries no secret and
+    // stays committable.
+  },
+
+  // Deterministic scheme documented in docker-compose.yml. Postgres (5030) is absent on
+  // purpose: docker-compose publishes it natively, and declaring it here too would
+  // double-publish the same host port and collide on attach.
+  "forwardPorts": [5010, 5080, 5090],
+  "portsAttributes": {
+    "5010": { "label": "Next.js dev server", "onAutoForward": "notify", "requireLocalPort": true },
+    "5080": { "label": "Playwright HTML report", "onAutoForward": "notify", "requireLocalPort": true },
+    "5090": { "label": "Playwright UI mode", "onAutoForward": "notify", "requireLocalPort": true }
+  },
+  // forwardPorts is the single source of truth for host exposure — everything else stays in.
+  "otherPortsAttributes": { "onAutoForward": "ignore" },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "Prisma.prisma",
+        "ms-playwright.playwright",
+        "eamodio.gitlens",
+        "christian-kohler.path-intellisense",
+        "formulahendry.auto-rename-tag",
+        "yzhang.markdown-all-in-one",
+        "usernamehw.errorlens",
+        "vivaxy.vscode-conventional-commits",
+        "EditorConfig.EditorConfig",
+        "Anthropic.claude-code"
+      ],
+      "settings": {
+        // forwardPorts is the single source of truth for host exposure — disable the
+        // process-scanning fallback that would auto-forward any listening port it finds.
+        "remote.autoForwardPortsFallback": 0,
+        "editor.rulers": [100],
+        "files.exclude": {
+          "**/node_modules": true,
+          "**/.next": true
+        },
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/.next": true,
+          "**/package-lock.json": true
+        },
+        "tailwindCSS.includeLanguages": {
+          "typescript": "javascript",
+          "typescriptreact": "javascript"
+        },
+        // Use the workspace TypeScript, not VS Code's bundled one — the ratchet counts
+        // errors with the workspace tsc, so the editor must agree with it.
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
+}

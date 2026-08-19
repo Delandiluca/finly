@@ -3,19 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 5010",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
+    "start": "next start -p 5010",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "typecheck:ratchet": "node scripts/typecheck-ratchet.mjs",
+    "typecheck:baseline": "node scripts/typecheck-ratchet.mjs --update",
+    "validate": "npm run typecheck:ratchet",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "test": "playwright test",
-    "test:ui": "playwright test --ui",
+    "test:ui": "playwright test --ui --ui-port=5090",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report --port 5080",
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.9.0",
@@ -37,6 +43,9 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@eslint/eslintrc": "^3.3.6",
     "@playwright/experimental-ct-react": "^1.58.2",
     "@playwright/test": "^1.58.2",
     "@types/node": "^22.19.11",
@@ -45,6 +54,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.19.0",
     "eslint-config-next": "^15.1.6",
+    "lefthook": "^2.1.10",
     "postcss": "^8.4.51",
     "prisma": "^6.2.0",
     "tailwindcss": "^3.4.17",

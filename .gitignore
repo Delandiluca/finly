@@ -45,12 +45,18 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-/prisma/migrations/
+# Migrations are COMMITTED on purpose — they are the schema's history and the only reproducible
+# way to bring another environment (or CI) to the current shape. Only local scratch DBs are ignored.
 prisma/dev.db
 prisma/dev.db-journal
 
 # IDE
-.vscode
+# .vscode is COMMITTED (shared workspace settings, recommended extensions, debug configs).
+# Only the per-developer files inside it are ignored.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
 .idea
 *.swp
 *.swo

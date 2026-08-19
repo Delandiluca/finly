@@ -26,74 +26,46 @@ Sistema completo de gestão financeira pessoal com IA, dashboards em tempo real,
 
 ## 📋 Pré-requisitos
 
-- Node.js 18+
-- npm ou yarn
-- Conta Neon PostgreSQL (grátis)
-- Conta Clerk (grátis)
-- Conta OpenAI (opcional para IA)
+- **Docker** + **VS Code** com a extensão Dev Containers (caminho recomendado — traz Node e
+  PostgreSQL prontos)
+- Uma conta **Clerk** (grátis) — é o único serviço sem equivalente local
+- Contas OpenAI / Upstash / Vercel Blob são opcionais para desenvolvimento
 
-## ⚡ Quick Start
+## ⚡ Quick Start (devcontainer)
 
-### 1. Clone o repositório
+1. Clone o repositório e abra no VS Code
+2. **Reopen in Container** — o `.devcontainer/post-create.sh` instala as dependências, gera o
+   Prisma Client, sincroniza o schema com o Postgres local e cria o `.env.local`
+3. Preencha as chaves do Clerk em `.env.local`
+4. `npm run dev` → http://localhost:5010
 
-```bash
-git clone https://github.com/seu-usuario/finly.git
-cd finly
-```
+### Portas
 
-### 2. Instale as dependências
+O esquema é determinístico (`5` + serviço), para que finly conviva com os repositórios irmãos
+(`fourmdg` em 4xxx, `product-metrics` em 3000):
+
+| Porta | Serviço |
+|-------|---------|
+| 5010 | Next.js dev server |
+| 5030 | PostgreSQL (`postgres` / `finly_development`) |
+| 5080 | Playwright HTML report |
+| 5090 | Playwright UI mode |
+
+### Sem devcontainer
+
+Precisa de Node 20 (veja `.nvmrc`) e de um PostgreSQL acessível:
 
 ```bash
 npm install
-```
-
-### 3. Configure as variáveis de ambiente
-
-```bash
-cp .env.example .env.local
-```
-
-Edite `.env.local` e preencha as variáveis:
-
-```env
-# Database - Obtenha em https://neon.tech
-DATABASE_URL="postgresql://user:password@host:5432/finly"
-
-# Clerk - Obtenha em https://clerk.com
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
-
-# OpenAI (opcional) - Obtenha em https://platform.openai.com
-OPENAI_API_KEY="sk-..."
-
-# Redis (opcional) - Obtenha em https://upstash.com
-UPSTASH_REDIS_URL="https://..."
-UPSTASH_REDIS_TOKEN="..."
-
-# Encryption - Gere com: openssl rand -hex 32
-ENCRYPTION_KEY="..."
-
-# Cron Secret - Gere uma string aleatória
-CRON_SECRET="..."
-```
-
-### 4. Setup do Banco de Dados
-
-```bash
-# Executar migrations
-npx prisma migrate dev
-
-# (Opcional) Seed com dados iniciais
-npx prisma db seed
-```
-
-### 5. Execute o servidor de desenvolvimento
-
-```bash
+export DATABASE_URL="postgresql://user:senha@localhost:5432/finly_development"
+npx prisma generate && npx prisma db push
+cp .env.example .env.local   # preencha as chaves do Clerk
 npm run dev
 ```
 
-Acesse [http://localhost:3000](http://localhost:3000)
+> **Antes de contribuir, leia [AGENTS.md](AGENTS.md)** — é o acordo de trabalho do repositório
+> (invariantes de multi-tenancy, política de fallback, gates de validação) e traz o **ledger de
+> dívida técnica**, incluindo o fato de que a árvore **ainda não compila**.
 
 ## 🗄️ Estrutura do Banco de Dados
 
@@ -190,28 +162,29 @@ const formatted = new Intl.NumberFormat('pt-BR', {
 
 ## 🧪 Testes
 
+A suíte E2E (Playwright) é um gate **local**, não de CI: ela precisa de credenciais Clerk reais e
+de um banco populado, que a CI não tem como fornecer.
+
 ```bash
-# Unit tests
-npm run test
-
-# E2E tests
-npm run test:e2e
-
-# Coverage
-npm run test:coverage
+npm run test         # roda a suíte (sobe o dev server sozinho)
+npm run test:ui      # modo interativo
+npm run test:report  # abre o último relatório
 ```
 
 ## 📊 Scripts Disponíveis
 
 ```bash
-npm run dev          # Servidor de desenvolvimento
-npm run build        # Build para produção
-npm run start        # Servidor de produção
-npm run lint         # ESLint
-npm run type-check   # TypeScript check
-npm run db:migrate   # Executar migrations
-npm run db:seed      # Seed do banco
-npm run db:studio    # Prisma Studio (visualizar dados)
+npm run dev                  # Servidor de desenvolvimento (porta 5010)
+npm run build                # Build de produção
+npm run start                # Servidor de produção
+npm run validate             # O gate: ratchet de typecheck (o que a CI exige)
+npm run typecheck            # tsc puro — mostra todos os erros conhecidos
+npm run typecheck:baseline   # Registra o progresso após corrigir erros
+npm run lint                 # ESLint (informativo, não é gate)
+npm run test                 # Playwright E2E (precisa das chaves Clerk e do app rodando)
+npm run db:migrate           # Criar/aplicar migrations
+npm run db:push              # Sincronizar schema (dev descartável)
+npm run db:studio            # Prisma Studio
 ```
 
 ## 🚀 Deploy
